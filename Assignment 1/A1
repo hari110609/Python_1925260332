@@ -1,1 +1,29 @@
+# Task 1 - Milk payment calculator for the village co-operative
+BASE_RATE = 30.0
 
+# Format: [Farmer_ID, Litres, Fat, SNF, Shift]
+farmers_list = [
+    ["F001", 15.5, 4.2, 8.5, "Morning"],
+    ["F002", 20.0, 3.8, 8.2, "Evening"],
+    ["F003", 10.0, 5.0, 9.0, "Morning"],
+    ["F004", -2.0, 4.0, 8.5, "Evening"],   # invalid litres, to test validation
+]
+
+for farmer in farmers_list:
+    farmer_id = farmer[0]
+    litres = farmer[1]
+    fat = farmer[2]
+    snf = farmer[3]
+    shift = farmer[4]
+
+    # validation rules
+    if litres <= 0 or fat < 2.0 or fat > 7.0 or snf < 6.0 or snf > 11.0:
+        print("Error: Invalid data for Farmer", farmer_id)
+    else:
+        rate_per_litre = BASE_RATE + (fat * 0.4) + (snf * 0.6)
+        amount = litres * rate_per_litre
+        print("Farmer ID:", farmer_id)
+        print("Shift:", shift)
+        print("Rate per Litre:", rate_per_litre)
+        print("Total Amount:", amount)
+        print("-----------------------")
