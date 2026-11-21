@@ -1,1 +1,32 @@
+import os
+os.makedirs("output/events", exist_ok=True)
 
+def ok(e):  # e-mail check
+    return e.count("@") == 1 and " " not in e and e.split("@")[0] != "" and "." in e.split("@")[1].strip(".")
+
+seen, good, errors = set(), [], []
+for path in ["cse.txt", "ece.txt", "it.txt"]:
+    try:
+        lines = open(path).read().splitlines()
+    except FileNotFoundError:
+        errors.append(path + ": file missing")
+        continue
+    for n, line in enumerate(lines, 1):
+        p = [x.strip() for x in line.split(",")]
+        if len(p) != 5:
+            errors.append(f"{path} line {n}: damaged")
+        elif not ok(p[3]):
+            errors.append(f"{path} line {n}: invalid e-mail")
+        elif p[0] in seen:
+            errors.append(f"{path} line {n}: duplicate")
+        else:
+            seen.add(p[0])
+            good.append(p)
+
+open("output/master.txt", "w").write("\n".join(",".join(p) for p in good))
+for p in good:
+    for ev in p[4].split(";"):
+        open(f"output/events/{ev.strip()}.txt", "a").write(p[0] + "," + p[1] + "\n")
+open("output/errors.txt", "w").write("\n".join(errors))
+open("output/summary.txt", "w").write(f"Valid: {len(good)}\nErrors: {len(errors)}")
+print(len(good), "valid,", len(errors), "errors")
