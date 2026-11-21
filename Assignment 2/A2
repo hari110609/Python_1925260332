@@ -1,1 +1,102 @@
+# version 1: separate if statements (the way the developer wrote it)
+def separate_ifs(units, card, senior):
+    result = []
+    if units <= 100:
+        result.append("FULL")
+    if units <= 200 and card:
+        result.append("PARTIAL")
+    if units >= 200 and senior:
+        result.append("SENIOR")
+    if units > 200 and not senior:
+        result.append("NONE")
+    return result
 
+
+# version 2: if-elif-else with chained comparison
+def if_elif(units, card, senior):
+    if units <= 100:
+        return "FULL"
+    elif 101 <= units <= 200 and card:
+        return "PARTIAL"
+    elif units > 200 and senior:
+        return "SENIOR"
+    else:
+        return "NONE"
+
+
+# same rule written with nested if (for the design decision)
+def nested_if(units, card, senior):
+    if units <= 100:
+        return "FULL"
+    elif 101 <= units <= 200:
+        if card:
+            return "PARTIAL"
+        else:
+            return "NONE"
+    else:
+        if senior:
+            return "SENIOR"
+        else:
+            return "NONE"
+
+
+# alternative 1: match-case
+def using_match(units, card, senior):
+    match units:
+        case u if u <= 100:
+            return "FULL"
+        case u if 101 <= u <= 200:
+            if card:
+                return "PARTIAL"
+            return "NONE"
+        case _:
+            if senior:
+                return "SENIOR"
+            return "NONE"
+
+
+# alternative 2: list of (upper limit, decision) pairs searched in a loop
+slabs = [(100, "FULL"), (200, "PARTIAL"), (999999, "SENIOR")]
+
+
+def using_lookup(units, card, senior):
+    for limit, decision in slabs:
+        if units <= limit:
+            break
+    if decision == "PARTIAL" and not card:
+        decision = "NONE"
+    if decision == "SENIOR" and not senior:
+        decision = "NONE"
+    return decision
+
+
+# units, ration card, member above 80, my prediction
+households = [
+    (60, True, False, "FULL"),
+    (100, False, False, "FULL"),
+    (101, True, False, "PARTIAL"),
+    (101, False, False, "NONE"),
+    (200, True, True, "PARTIAL"),
+    (201, True, False, "NONE"),
+    (201, False, True, "SENIOR"),
+    (350, False, False, "NONE"),
+]
+
+print("units card   senior  predicted  if-elif   separate ifs")
+for units, card, senior, predicted in households:
+    a = separate_ifs(units, card, senior)
+    b = if_elif(units, card, senior)
+    print(f"{units:<6} {str(card):<6} {str(senior):<7} {predicted:<10} {b:<9} {a}")
+
+print()
+print("Checking the other versions against if-elif:")
+all_same = True
+for units, card, senior, predicted in households:
+    b = if_elif(units, card, senior)
+    if nested_if(units, card, senior) != b:
+        all_same = False
+    if using_match(units, card, senior) != b:
+        all_same = False
+    if using_lookup(units, card, senior) != b:
+        all_same = False
+print("nested, match-case and lookup give the same answers:", all_same)
