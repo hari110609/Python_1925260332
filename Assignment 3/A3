@@ -1,1 +1,200 @@
+import random
+import time
 
+TITLES = {"dr", "mr", "mrs", "ms", "prof", "er"}
+
+
+def normalise_number(number):
+    # keep only digits and take the last 10 (drops +91, 0, spaces, dashes)
+    if not number:
+        return ""
+    digits = "".join(ch for ch in number if ch.isdigit())
+    return digits[-10:] if len(digits) >= 10 else digits
+
+
+def normalise_name(name):
+    # lower case, no dots, no titles like Dr / Mr
+    if not name:
+        return ""
+    words = name.lower().replace(".", " ").split()
+    words = [w for w in words if w not in TITLES]
+    return " ".join(words)
+
+
+def normalise_email(email):
+    return email.strip().lower() if email else ""
+
+
+def merge_contacts(contacts):
+    merged = {}  # key -> {"name": ..., "numbers": set, "emails": set}
+    email_to_key = {}  # used when a contact has no phone number
+    for name, number, email in contacts:
+        num = normalise_number(number)
+        nm = normalise_name(name)
+        em = normalise_email(email)
+        if num:
+            key = num
+        elif em and em in email_to_key:
+            key = email_to_key[em]
+        elif em:
+            key = "email:" + em
+        elif nm:
+            key = "name:" + nm
+        else:
+            continue  # nothing useful in this contact
+        person = merged.setdefault(
+            key, {"name": "", "numbers": set(), "emails": set()}
+        )
+        if len(nm) > len(person["name"]):
+            person["name"] = nm  # keep the fullest name
+        if num:
+            person["numbers"].add(num)
+        if em:
+            person["emails"].add(em)
+            email_to_key.setdefault(em, key)
+    return merged
+
+
+def merge_pairwise(contacts):
+    # alternative: compare every contact with every group made so far
+    groups = []
+    for name, number, email in contacts:
+        num = normalise_number(number)
+        nm = normalise_name(name)
+        em = normalise_email(email)
+        for g in groups:
+            if num and num in g["numbers"]:
+                break
+        else:
+            g = {"name": "", "numbers": set(), "emails": set()}
+            groups.append(g)
+        if len(nm) > len(g["name"]):
+            g["name"] = nm
+        if num:
+            g["numbers"].add(num)
+        if em:
+            g["emails"].add(em)
+    return groups
+
+
+def show(merged):
+    for key in sorted(merged, key=lambda k: merged[k]["name"]):
+        p = merged[key]
+        print(
+            f"  {p['name'].title():14} numbers = {sorted(p['numbers'])}"
+            f"  emails = {sorted(p['emails'])}"
+        )
+
+
+phone1 = [
+    ("Dr. Ravi", "+91 98400 12345", "ravi@clinic.in"),
+    ("Anitha", "98841-55667", None),
+    ("Suresh", "044 2345 6789", "suresh@mail.com"),
+]
+phone2 = [
+    ("ravi kumar", "9840012345", "RAVI@clinic.in"),
+    ("Anitha S", "09884155667", "anitha@mail.com"),
+    ("Ravi Kumar", "9000011111", None),
+]  # a different Ravi Kumar
+sim = [
+    ("RAVI", "98400 12345", None),
+    ("Suresh", "", "suresh@mail.com"),  # missing number
+    ("Meena", "+91-90030-77889", ""),  # missing e-mail
+    (None, None, None),
+]  # empty entry
+
+contacts = phone1 + phone2 + sim
+print("Normalisation examples:")
+for raw in (
+    "+91 98400 12345",
+    "9840012345",
+    "09884155667",
+    "+91-90030-77889",
+    "",
+    None,
+):
+    print(f"  {str(raw):18} -> {normalise_number(raw)!r}")
+for raw in ("Dr. Ravi", "ravi kumar", "RAVI", "Anitha S"):
+    print(f"  {raw:18} -> {normalise_name(raw)!r}")
+
+merged = merge_contacts(contacts)
+print()
+print("Input contacts :", len(contacts))
+print("After merging  :", len(merged))
+show(merged)
+
+by_pairs = merge_pairwise([c for c in contacts if normalise_number(c[1])])
+with_number = {
+    k: v for k, v in merged.items() if not k.startswith(("email:", "name:"))
+}
+print(
+    "Pairwise method gives same number groups:",
+    sorted(tuple(sorted(g["numbers"])) for g in by_pairs)
+    == sorted(tuple(sorted(p["numbers"])) for p in with_number.values()),
+)
+
+print()
+print("Edge cases:")
+print("  empty list     :", merge_contacts([]))
+print(
+    "  only duplicates:",
+    len(merge_contacts([("A", "9876543210", None)] * 5)),
+    "person",
+)
+
+# ---------------- experiment ----------------
+random.seed(7)
+FIRST = [
+    "ravi",
+    "anitha",
+    "suresh",
+    "meena",
+    "karthik",
+    "priya",
+    "arun",
+    "divya",
+    "vijay",
+    "latha",
+]
+LAST = ["kumar", "s", "raj", "devi", "krishnan", "babu"]
+
+
+def make_contacts(n):
+    people = n // 2  # so every person appears about twice
+    numbers = [str(9000000000 + random.randrange(10**9)) for i in range(people)]
+    formats = [
+        lambda d: d,
+        lambda d: "+91 " + d[:5] + " " + d[5:],
+        lambda d: "0" + d,
+        lambda d: "+91-" + d[:5] + "-" + d[5:],
+    ]
+    data = []
+    for i in range(n):
+        p = random.randrange(people)
+        name = random.choice(FIRST) + " " + random.choice(LAST)
+        email = f"user{p}@mail.com" if random.random() < 0.5 else None
+        data.append((name, random.choice(formats)(numbers[p]), email))
+    return data
+
+
+print()
+print("--- Timing (seconds) ---")
+print(f"{'contacts':>9} {'people':>8} {'dictionary':>11} {'pairwise':>10}")
+for n in (1000, 2000, 4000, 100000):
+    data = make_contacts(n)
+    t = time.perf_counter()
+    m = merge_contacts(data)
+    t1 = time.perf_counter() - t
+    if n <= 4000:
+        t = time.perf_counter()
+        g = merge_pairwise(data)
+        t2 = time.perf_counter() - t
+        assert len(g) == len(m)
+        print(f"{n:>9} {len(m):>8} {t1:>11.4f} {t2:>10.4f}")
+        last = (n, t2)
+    else:
+        estimate = last[1] * (n / last[0]) ** 2
+        print(
+            f"{n:>9} {len(m):>8} {t1:>11.4f}"
+            f" {'~' + format(estimate, '.0f') + ' (est.)':>10}"
+        )
